@@ -69,7 +69,7 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
             hass,
             LOGGER,
             name=f"{DOMAIN}-{device["id"]}",
-            always_update=False
+            always_update=True
         )
     
     @property
@@ -103,7 +103,7 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         if data is None:
             return None
         data &= 0xBF
-        return OPERATION_MAP.get("%02X" % data)
+        return OPERATION_MAP.get("%02X" % data) or ("开机" if data != 0 else "关机")
 
     @property
     def is_heating(self) -> bool:

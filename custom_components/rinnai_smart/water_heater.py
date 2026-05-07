@@ -27,7 +27,7 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 class RinnaiWaterHeater(RinnaiEntity, WaterHeaterEntity):
     """Water Heater entity for a Rinnai Device"""
 
-    _attr_operation_list = list(dict.fromkeys(OPERATION_MAP.values()))
+    _attr_operation_list = list(dict.fromkeys([*OPERATION_MAP.values(), "开机", "关机"]))
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_precision = PRECISION_WHOLE
     _attr_min_temp = MIN_TEMP

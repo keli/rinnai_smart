@@ -1,6 +1,9 @@
 # Rinnai Smart for Home Assistant
 
-Support for [Rinnai Smart Water Heater (E86) monitoring and control device](https://www.rinnai.com.cn/productDetail-646a2c67-29d6-4aff-8ff2-167cc1d33367.html) for Home Assistant.
+Home Assistant custom integration for Rinnai Smart water heaters in China.
+
+This fork is based on `catro/rinnai_smart` and adds compatibility work for
+`RUS-UR16E75G-CY` / `RUS-**E75G-CY` devices.
 
 ## WARNING
 
@@ -10,7 +13,26 @@ Support for [Rinnai Smart Water Heater (E86) monitoring and control device](http
 
 ## IMPORTANT NOTES
 
-* **THIS LIBRARY ONLY WORKS ON RUS-R16E86FBF.**
+* The upstream integration was originally written for `RUS-R16E86FBF`.
+* This fork has been tested against `RUS-UR16E75G-CY`.
+* Rinnai does not publish a stable API; other models may use different field encodings.
+* Use Home Assistant logs and the `rinnai_raw` water heater attribute when validating a new model.
+
+## RUS-UR16E75G-CY Notes
+
+This model differs from the original E86 mapping in a few important places:
+
+- Temperature values may be reported as little-endian hex-like strings, for example `2800` means `40`.
+- Switch-like values may use `31` for on and `30` for off, instead of `01` and `00`.
+- `operationMode=00` does not necessarily mean the heater is powered off on this model.
+- The water heater entity exposes a `rinnai_raw` attribute with the raw `processParameter` payload for debugging.
+
+Observed mappings:
+
+- `power=31`: heater is on.
+- `temporaryCycleInsulationSetting=31`: one-key circulation is on.
+- `temporaryCycleInsulationSetting=30`: one-key circulation is off.
+- `cycleReservationSetting=30`: circulation reservation is off.
 
 ### Features
 
@@ -30,6 +52,8 @@ Support for [Rinnai Smart Water Heater (E86) monitoring and control device](http
 
 The 'main' branch of this custom component is considered unstable, alpha quality and not guaranteed to work.
 Please make sure to use one of the official release branches when installing using HACS, see [what has changed in each version](https://github.com/keli/rinnai_smart/releases).
+
+Recommended release for `RUS-UR16E75G-CY`: `v0.0.5-e75gcy.1`.
 
 #### With HACS
 

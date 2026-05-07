@@ -60,7 +60,32 @@ class RinnaiWaterHeater(RinnaiEntity, WaterHeaterEntity):
     @property
     def extra_state_attributes(self) -> dict:
         """Return the optional device state attributes."""
-        return {"target_temp_step": 1}
+        raw = self._device.raw_device_information
+        return {
+            "target_temp_step": 1,
+            "rinnai_raw": {
+                key: raw.get(key)
+                for key in sorted(raw)
+                if key
+                in {
+                    "operationMode",
+                    "hotWaterTempSetting",
+                    "burningState",
+                    "cycleModeSetting",
+                    "cycleReservationSetting",
+                    "temporaryCycleInsulationSetting",
+                    "cycleReservationTimeSetting",
+                    "waterFlowServo",
+                    "waterFlow",
+                    "waterFlowValue",
+                    "pumpState",
+                    "cycleState",
+                    "circulationState",
+                    "temporaryCycleState",
+                    "temporaryCycleSetting",
+                }
+            },
+        }
 
     async def async_set_temperature(self, **kwargs):
         target_temp = kwargs.get(ATTR_TEMPERATURE)

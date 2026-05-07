@@ -142,6 +142,10 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
                 hour += 1
         return ','.join(hours)
 
+    @property
+    def raw_device_information(self) -> dict[str, Any]:
+        return self._device_information or {}
+
     async def _async_setup(self) -> None:
         await self._client.subscribe(self._device["id"], self._update_device)
 

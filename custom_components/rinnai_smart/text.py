@@ -35,6 +35,12 @@ class RinnaiText(RinnaiEntity, TextEntity):
         if self._text_dict["entity_type"] == "cycle_reservation_time":
             return self._device.cycle_reservation_time
 
+    @property
+    def available(self):
+        if self._text_dict["entity_type"] == "cycle_reservation_time":
+            return self._device.cycle_reservation_time is not None
+        return True
+
     async def async_set_value(self, value: str):
         if self._text_dict["entity_type"] == "cycle_reservation_time":
             await self._device.async_set_cycle_reservation_time(value)

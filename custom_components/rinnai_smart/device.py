@@ -145,9 +145,13 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def cycle_reservation_time(self) -> str:
+        setting = self._device_information.get("cycleReservationTimeSetting")
+        if not setting:
+            return None
+
         hours = []
         hour = 0
-        for hex_str in self._device_information["cycleReservationTimeSetting"].split():
+        for hex_str in setting.split():
             hex_value = int(hex_str, 16)
             for i in range(8):
                 if hex_value & (1 << i):

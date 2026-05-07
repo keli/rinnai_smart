@@ -9,6 +9,10 @@ from .const import (
 )
 from .rinnai_client import RinnaiClient
 
+
+def _is_enabled(value: str | None) -> bool:
+    return value in ("1", "01", "on", "true", True)
+
 class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     """Rinnai device object"""
 
@@ -47,7 +51,7 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def model(self) -> str:
         """Return model for device"""
-        return self._device["deviceType"][-3:]
+        return self._device.get("model") or self._device.get("remark") or self._device["deviceType"][-3:]
 
     @property
     def target_temperature(self) -> float:
@@ -74,11 +78,11 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     
     @property
     def is_cycle_reservation_on(self) -> bool:
-        return self._device_information["cycleReservationSetting"] == "1"
+        return _is_enabled(self._device_information.get("cycleReservationSetting"))
     
     @property
     def is_temporary_cycle_insulation_on(self) -> bool:
-        return self._device_information["temporaryCycleInsulationSetting"] == "1"
+        return _is_enabled(self._device_information.get("temporaryCycleInsulationSetting"))
     
     @property
     def is_burn_state_on(self) -> bool:
@@ -101,9 +105,11 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_turn_off(self):
         await self._client.publish(self._device, "power", "00")
+        await self.async_request_refresh()
 
     async def async_turn_on(self):
         await self._client.publish(self._device, "power", "01")
+        await self.async_request_refresh()
 
     async def async_set_temperature(self, temperature: int):
         previous_temperature = int(self._device_information["hotWaterTempSetting"], 16)
@@ -119,18 +125,23 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
 
     async def async_set_cycle_mode(self, cycle_mode):
         await self._client.publish(self._device, "cycleModeSetting", CYCLE_MODE_COMMAND_MAP[cycle_mode])
+        await self.async_request_refresh()
 
     async def async_turn_on_cycle_reservation(self):
         await self._client.publish(self._device, "cycleReservationSetting", "01")
+        await self.async_request_refresh()
 
     async def async_turn_off_cycle_reservation(self):
         await self._client.publish(self._device, "cycleReservationSetting", "00")
+        await self.async_request_refresh()
 
     async def async_turn_on_temporary_cycle_insulation(self):
         await self._client.publish(self._device, "temporaryCycleInsulationSetting", "01")
+        await self.async_request_refresh()
 
     async def async_turn_off_temporary_cycle_insulation(self):
         await self._client.publish(self._device, "temporaryCycleInsulationSetting", "00")
+        await self.async_request_refresh()
 
     async def async_set_cycle_reservation_time(self, value: str):
         hours = [0, 0, 0]
@@ -141,8 +152,13 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
             hours[index] |= (1<<bit)
         data = " ".join(["%02X" % hour for hour in hours])
         await self._client.publish(self._device, "cycleReservationTimeSetting", data)
+        await self.async_request_refresh()
 
     async def _async_update_data(self):
+        device_information = await self._client.refresh_device_information(self.id)
+        if device_information is not None:
+            self._device_information = device_information
+            LOGGER.debug("Rinnai device data refreshed by HTTP: %s", self._device_information)
         return self._device_information
 
     async def _update_device(self, device_info: dict) -> None:

@@ -72,6 +72,18 @@ class HTTPClient:
             "/app/V1/device/processParameter", headers=headers, params=params
         )
 
+    async def get_device_information(self, device_id: str):
+        if self._token == "":
+            await self.login()
+
+        response = await self._get_device_information(device_id)
+        if response.get("success") == False:
+            LOGGER.error(f"Failed to get device information: {response}")
+            await self.login()
+            response = await self._get_device_information(device_id)
+
+        return response
+
     @backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=60)
     async def _get_url(self, url, **kwargs):
         async with aiohttp.ClientSession(
@@ -146,6 +158,24 @@ class RinnaiClient:
     async def get_devices(self) -> dict | None:
         self._devices = await self._http_client.get_devices()
         return self._devices
+
+    async def refresh_device_information(self, device_id: str) -> dict | None:
+        if device_id not in self._devices:
+            LOGGER.error(f"Unknown device_id: {device_id}")
+            return None
+
+        response = await self._http_client.get_device_information(device_id)
+        if response.get("success") == False:
+            LOGGER.error(f"Failed to refresh device information: {response}")
+            return None
+
+        info = response.get("data")
+        if not isinstance(info, dict):
+            LOGGER.error(f"Unexpected device information response: {response}")
+            return None
+
+        self._devices[device_id]["info"] = info
+        return info
 
     import re
 
@@ -238,6 +268,13 @@ class RinnaiClient:
         }
         mac = device["mac"]
         await self._mqtt_client.publish(f"rinnai/SR/01/SR/{mac}/set/", json.dumps(payload))
+        LOGGER.info(
+            "Published command for %s (%s): %s=%s",
+            device.get("name"),
+            device.get("deviceType"),
+            command_id,
+            command_data,
+        )
 
 
 # define main entry for testing

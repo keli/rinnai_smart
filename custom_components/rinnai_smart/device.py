@@ -50,7 +50,13 @@ def _encode_like_current_value(current_value: str | None, command_data: str) -> 
 
 
 def _is_enabled(value: str | None) -> bool:
-    return _decode_hex_byte(value) == 1
+    return _decode_hex_byte(value) in (1, 0x31)
+
+
+def _encode_switch_value(current_value: str | None, enabled: bool) -> str:
+    if isinstance(current_value, str) and current_value.strip().upper() in ("30", "31"):
+        return "31" if enabled else "30"
+    return _encode_like_current_value(current_value, "01" if enabled else "00")
 
 class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     """Rinnai device object"""
@@ -177,19 +183,19 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         await self.async_request_refresh()
 
     async def async_turn_on_cycle_reservation(self):
-        await self._publish("cycleReservationSetting", "01")
+        await self._publish_switch("cycleReservationSetting", True)
         await self.async_request_refresh()
 
     async def async_turn_off_cycle_reservation(self):
-        await self._publish("cycleReservationSetting", "00")
+        await self._publish_switch("cycleReservationSetting", False)
         await self.async_request_refresh()
 
     async def async_turn_on_temporary_cycle_insulation(self):
-        await self._publish("temporaryCycleInsulationSetting", "01")
+        await self._publish_switch("temporaryCycleInsulationSetting", True)
         await self.async_request_refresh()
 
     async def async_turn_off_temporary_cycle_insulation(self):
-        await self._publish("temporaryCycleInsulationSetting", "00")
+        await self._publish_switch("temporaryCycleInsulationSetting", False)
         await self.async_request_refresh()
 
     async def async_set_cycle_reservation_time(self, value: str):
@@ -215,6 +221,13 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         if self._device_information:
             current_value = self._device_information.get(command_id)
         data = _encode_like_current_value(current_value, command_data)
+        await self._client.publish(self._device, command_id, data)
+
+    async def _publish_switch(self, command_id: str, enabled: bool):
+        current_value = None
+        if self._device_information:
+            current_value = self._device_information.get(command_id)
+        data = _encode_switch_value(current_value, enabled)
         await self._client.publish(self._device, command_id, data)
 
     async def _update_device(self, device_info: dict) -> None:

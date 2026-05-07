@@ -63,28 +63,7 @@ class RinnaiWaterHeater(RinnaiEntity, WaterHeaterEntity):
         raw = self._device.raw_device_information
         return {
             "target_temp_step": 1,
-            "rinnai_raw": {
-                key: raw.get(key)
-                for key in sorted(raw)
-                if key
-                in {
-                    "operationMode",
-                    "hotWaterTempSetting",
-                    "burningState",
-                    "cycleModeSetting",
-                    "cycleReservationSetting",
-                    "temporaryCycleInsulationSetting",
-                    "cycleReservationTimeSetting",
-                    "waterFlowServo",
-                    "waterFlow",
-                    "waterFlowValue",
-                    "pumpState",
-                    "cycleState",
-                    "circulationState",
-                    "temporaryCycleState",
-                    "temporaryCycleSetting",
-                }
-            },
+            "rinnai_raw": {key: raw.get(key) for key in sorted(raw)},
         }
 
     async def async_set_temperature(self, **kwargs):

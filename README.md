@@ -29,11 +29,11 @@ Support for [Rinnai Smart Water Heater (E86) monitoring and control device](http
 #### Versions
 
 The 'main' branch of this custom component is considered unstable, alpha quality and not guaranteed to work.
-Please make sure to use one of the official release branches when installing using HACS, see [what has changed in each version](https://github.com/catro/rinnai_smart/releases).
+Please make sure to use one of the official release branches when installing using HACS, see [what has changed in each version](https://github.com/keli/rinnai_smart/releases).
 
 #### With HACS
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=catro&repository=rinnai_smart&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=keli&repository=rinnai_smart&category=integration)
 
 #### Manual
 1. Copy the `rinnai_smart` directory from `custom_components` in this repository and place inside your Home Assistant's `custom_components` directory.

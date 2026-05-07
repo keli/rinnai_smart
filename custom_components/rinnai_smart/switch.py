@@ -27,6 +27,8 @@ class RinnaiSwitch(RinnaiEntity, SwitchEntity):
     @property
     def is_on(self):
         match self._switch_dict["entity_type"]:
+            case "power":
+                return self._device.is_on
             case "cycle_reservation":
                 return self._device.is_cycle_reservation_on
             case "temporary_cycle_insulation":
@@ -34,6 +36,8 @@ class RinnaiSwitch(RinnaiEntity, SwitchEntity):
 
     async def async_turn_on(self, **kwargs):
         match self._switch_dict["entity_type"]:
+            case "power":
+                await self._device.async_turn_on()
             case "cycle_reservation":
                 await self._device.async_turn_on_cycle_reservation()
             case "temporary_cycle_insulation":
@@ -41,6 +45,8 @@ class RinnaiSwitch(RinnaiEntity, SwitchEntity):
 
     async def async_turn_off(self, **kwargs):
         match self._switch_dict["entity_type"]:
+            case "power":
+                await self._device.async_turn_off()
             case "cycle_reservation":
                 await self._device.async_turn_off_cycle_reservation()
             case "temporary_cycle_insulation":

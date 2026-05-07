@@ -121,6 +121,9 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def is_on(self) -> bool:
+        power = self._device_information.get("power")
+        if power is not None:
+            return _is_enabled(power)
         return self.target_temperature is not None
     
     @property
@@ -160,11 +163,11 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         await self._client.subscribe(self._device["id"], self._update_device)
 
     async def async_turn_off(self):
-        await self._publish("power", "00")
+        await self._publish_switch("power", False)
         await self.async_request_refresh()
 
     async def async_turn_on(self):
-        await self._publish("power", "01")
+        await self._publish_switch("power", True)
         await self.async_request_refresh()
 
     async def async_set_temperature(self, temperature: int):

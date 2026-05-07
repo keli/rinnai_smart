@@ -44,6 +44,11 @@ CYCLE_MODE_COMMAND_MAP = {
 
 SWITCHES = [
     {
+        "icon": "mdi:power",
+        "entity_type": "power",
+        "name": "电源"
+    },
+    {
         "icon": "mdi:power-cycle",
         "entity_type": "cycle_reservation",
         "name": "循环预约"

@@ -10,8 +10,47 @@ from .const import (
 from .rinnai_client import RinnaiClient
 
 
+def _decode_hex_byte(value: str | None) -> int | None:
+    """Decode Rinnai one-byte values, including two-byte little-endian variants."""
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return 1 if value else 0
+    if not isinstance(value, str):
+        return None
+
+    normalized = value.strip().upper()
+    if normalized in ("ON", "TRUE"):
+        return 1
+    if normalized in ("OFF", "FALSE"):
+        return 0
+    if not normalized:
+        return None
+
+    try:
+        if len(normalized) >= 4 and len(normalized) % 2 == 0:
+            bytes_ = [normalized[i : i + 2] for i in range(0, len(normalized), 2)]
+            if all(byte == "00" for byte in bytes_[1:]):
+                return int(bytes_[0], 16)
+        return int(normalized, 16)
+    except ValueError:
+        return None
+
+
+def _encode_like_current_value(current_value: str | None, command_data: str) -> str:
+    """Preserve devices that expect two-byte little-endian command payloads."""
+    if not isinstance(current_value, str):
+        return command_data
+    normalized = current_value.strip().upper()
+    if len(normalized) >= 4 and len(normalized) % 2 == 0:
+        bytes_ = [normalized[i : i + 2] for i in range(0, len(normalized), 2)]
+        if all(byte == "00" for byte in bytes_[1:]):
+            return f"{int(command_data, 16):02X}" + "00" * (len(bytes_) - 1)
+    return command_data
+
+
 def _is_enabled(value: str | None) -> bool:
-    return value in ("1", "01", "on", "true", True)
+    return _decode_hex_byte(value) == 1
 
 class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     """Rinnai device object"""
@@ -56,25 +95,28 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     @property
     def target_temperature(self) -> float:
         """Return the current temperature in degrees F"""
-        return int(self._device_information["hotWaterTempSetting"], 16)
+        return _decode_hex_byte(self._device_information.get("hotWaterTempSetting"))
 
     @property
     def operation_mode(self) -> str:
-        data = int(self._device_information["operationMode"], 16)
+        data = _decode_hex_byte(self._device_information.get("operationMode"))
+        if data is None:
+            return None
         data &= 0xBF
         return OPERATION_MAP.get("%02X" % data)
 
     @property
     def is_heating(self) -> bool:
-        return self._device_information["burningState"] == "1"
+        return _is_enabled(self._device_information.get("burningState"))
 
     @property
     def is_on(self) -> bool:
-        return self._device_information["operationMode"] != "0"
+        return _decode_hex_byte(self._device_information.get("operationMode")) != 0
     
     @property
     def cycle_mode(self) -> str | None:
-        return CYCLE_MODE_MAP.get(self._device_information["cycleModeSetting"], None)
+        data = _decode_hex_byte(self._device_information.get("cycleModeSetting"))
+        return CYCLE_MODE_MAP.get(str(data), None)
     
     @property
     def is_cycle_reservation_on(self) -> bool:
@@ -86,7 +128,7 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
     
     @property
     def is_burn_state_on(self) -> bool:
-        return self._device_information["burningState"] == "1"
+        return _is_enabled(self._device_information.get("burningState"))
 
     @property
     def cycle_reservation_time(self) -> str:
@@ -104,15 +146,18 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         await self._client.subscribe(self._device["id"], self._update_device)
 
     async def async_turn_off(self):
-        await self._client.publish(self._device, "power", "00")
+        await self._publish("power", "00")
         await self.async_request_refresh()
 
     async def async_turn_on(self):
-        await self._client.publish(self._device, "power", "01")
+        await self._publish("power", "01")
         await self.async_request_refresh()
 
     async def async_set_temperature(self, temperature: int):
-        previous_temperature = int(self._device_information["hotWaterTempSetting"], 16)
+        previous_temperature = self.target_temperature
+        if previous_temperature is None:
+            LOGGER.error("Unable to decode current temperature: %s", self._device_information.get("hotWaterTempSetting"))
+            return
         if temperature > previous_temperature:
             await self._client.publish(self._device, "hotWaterTempOperate", "01")
         elif temperature < previous_temperature:
@@ -124,23 +169,23 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
             await self._client.publish(self._device, command_id, "01")
 
     async def async_set_cycle_mode(self, cycle_mode):
-        await self._client.publish(self._device, "cycleModeSetting", CYCLE_MODE_COMMAND_MAP[cycle_mode])
+        await self._publish("cycleModeSetting", CYCLE_MODE_COMMAND_MAP[cycle_mode])
         await self.async_request_refresh()
 
     async def async_turn_on_cycle_reservation(self):
-        await self._client.publish(self._device, "cycleReservationSetting", "01")
+        await self._publish("cycleReservationSetting", "01")
         await self.async_request_refresh()
 
     async def async_turn_off_cycle_reservation(self):
-        await self._client.publish(self._device, "cycleReservationSetting", "00")
+        await self._publish("cycleReservationSetting", "00")
         await self.async_request_refresh()
 
     async def async_turn_on_temporary_cycle_insulation(self):
-        await self._client.publish(self._device, "temporaryCycleInsulationSetting", "01")
+        await self._publish("temporaryCycleInsulationSetting", "01")
         await self.async_request_refresh()
 
     async def async_turn_off_temporary_cycle_insulation(self):
-        await self._client.publish(self._device, "temporaryCycleInsulationSetting", "00")
+        await self._publish("temporaryCycleInsulationSetting", "00")
         await self.async_request_refresh()
 
     async def async_set_cycle_reservation_time(self, value: str):
@@ -160,6 +205,13 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
             self._device_information = device_information
             LOGGER.debug("Rinnai device data refreshed by HTTP: %s", self._device_information)
         return self._device_information
+
+    async def _publish(self, command_id: str, command_data: str):
+        current_value = None
+        if self._device_information:
+            current_value = self._device_information.get(command_id)
+        data = _encode_like_current_value(current_value, command_data)
+        await self._client.publish(self._device, command_id, data)
 
     async def _update_device(self, device_info: dict) -> None:
         """Update the device information from the API"""

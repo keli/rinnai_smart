@@ -34,14 +34,7 @@ OPERATION_COMMAND_MAP = {
     "水温按摩模式": "massageMode",
 }
 
-CYCLE_MODE_MAP = {
-    "0": "标准",
-    "00": "标准",
-    "1": "舒适",
-    "01": "舒适",
-    "2": "节能",
-    "02": "节能",
-}
+CYCLE_MODE_MAP = {"0": "标准", "1": "舒适", "2": "节能"}
 
 CYCLE_MODE_COMMAND_MAP = {
     "标准": "00",

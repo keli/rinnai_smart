@@ -109,7 +109,11 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         if data is None:
             return None
         data &= 0xBF
-        return OPERATION_MAP.get("%02X" % data) or ("开机" if data != 0 else "关机")
+        if mode := OPERATION_MAP.get("%02X" % data):
+            return mode
+        if self.target_temperature is not None:
+            return "开机"
+        return None
 
     @property
     def is_heating(self) -> bool:
@@ -117,7 +121,7 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
 
     @property
     def is_on(self) -> bool:
-        return _decode_hex_byte(self._device_information.get("operationMode")) != 0
+        return self.target_temperature is not None
     
     @property
     def cycle_mode(self) -> str | None:

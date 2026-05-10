@@ -187,6 +187,9 @@ class RinnaiClient:
             if len(tokens) < 5:
                 LOGGER.warning("Topic unknown")
                 return
+            # Ignore self-published commands echoed back from /set/ topic
+            if len(tokens) > 5 and tokens[5] == "set":
+                return
             mac = tokens[4]
             device_id = None
             for key, value in self._devices.items():

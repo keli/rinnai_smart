@@ -54,8 +54,6 @@ def _is_enabled(value: str | None) -> bool:
 
 
 def _encode_switch_value(current_value: str | None, enabled: bool) -> str:
-    if isinstance(current_value, str) and current_value.strip().upper() in ("30", "31"):
-        return "31" if enabled else "30"
     return _encode_like_current_value(current_value, "01" if enabled else "00")
 
 class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):

@@ -200,10 +200,14 @@ class RinnaiDeviceDataUpdateCoordinator(DataUpdateCoordinator):
         await self.async_request_refresh()
 
     async def async_turn_on_temporary_cycle_insulation(self):
+        if self.is_temporary_cycle_insulation_on:
+            return
         await self._publish_switch("temporaryCycleInsulationSetting", True)
         await self.async_request_refresh()
 
     async def async_turn_off_temporary_cycle_insulation(self):
+        if not self.is_temporary_cycle_insulation_on:
+            return
         await self._publish_switch("temporaryCycleInsulationSetting", False)
         await self.async_request_refresh()
 

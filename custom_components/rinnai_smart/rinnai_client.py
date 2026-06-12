@@ -43,12 +43,16 @@ class HTTPClient:
 
     async def get_devices(self) -> list[dict] | None:
         if self._token == "":
-            await self.login()
+            if not await self.login():
+                LOGGER.error("Login failed, cannot get devices")
+                return {}
 
         response = await self._get_devices()
         if response.get("success") == False:
             LOGGER.error(f"Failed to get devices: {response}")
-            await self.login()
+            if not await self.login():
+                LOGGER.error("Re-login failed, cannot get devices")
+                return {}
             response = await self._get_devices()
         devices = response.get("data", {}).get("list")
 

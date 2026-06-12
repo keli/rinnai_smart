@@ -39,13 +39,17 @@ class HTTPClient:
             LOGGER.error(f"Login succeeded but token is empty: {response}")
             return False
 
-        LOGGER.info("Successfully logged in")
+        LOGGER.error(f"Successfully logged in, token prefix: {token[:8]}..., length: {len(token)}")
         self._token = token
         return True
 
     async def _get_devices(self):
         headers = {"Authorization": f"Bearer {self._token}"}
-        return await self._get_url("/app/V1/device/list", headers=headers)
+        try:
+            return await self._get_url("/app/V1/device/list", headers=headers)
+        except aiohttp.ClientResponseError as e:
+            LOGGER.error(f"device/list HTTP {e.status}, headers sent: Authorization=Bearer {self._token[:8]}..., response headers: {dict(e.headers) if e.headers else {}}")
+            raise
 
     async def get_devices(self) -> list[dict] | None:
         if not self._token:

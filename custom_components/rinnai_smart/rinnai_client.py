@@ -18,15 +18,6 @@ class HTTPClient:
         self._password = str.upper(hashlib.md5(password.encode("utf-8")).hexdigest())
         self._token = ""
         self._devices = []
-        self._session: aiohttp.ClientSession | None = None
-
-    def _get_session(self) -> aiohttp.ClientSession:
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession(
-                base_url="https://iot.rinnai.com.cn",
-                raise_for_status=True,
-            )
-        return self._session
 
     async def login(self) -> bool:
         params = {
@@ -106,9 +97,13 @@ class HTTPClient:
 
     @backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=60)
     async def _get_url(self, url, **kwargs):
-        session = self._get_session()
-        async with session.get(url, **kwargs) as response:
-            return await response.json(content_type=None)
+        async with aiohttp.ClientSession(
+            base_url="https://iot.rinnai.com.cn",
+            raise_for_status=True,
+            cookie_jar=aiohttp.DummyCookieJar(),
+        ) as session:
+            async with session.get(url, **kwargs) as response:
+                return await response.json(content_type=None)
 
 
 class MQTTClient:

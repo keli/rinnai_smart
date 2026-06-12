@@ -29,12 +29,18 @@ class HTTPClient:
             "identityLevel": "0",
         }
         response = await self._get_url("/app/V1/login", params=params)
+        LOGGER.info(f"Login response: success={response.get('success')}, has_token={bool(response.get('data', {}).get('token'))}")
         if response.get("success") == False:
             LOGGER.error(f"Failed to login: {response}")
             return False
 
+        token = response.get("data", {}).get("token")
+        if not token:
+            LOGGER.error(f"Login succeeded but token is empty: {response}")
+            return False
+
         LOGGER.info("Successfully logged in")
-        self._token = response.get("data").get("token")
+        self._token = token
         return True
 
     async def _get_devices(self):
@@ -42,7 +48,7 @@ class HTTPClient:
         return await self._get_url("/app/V1/device/list", headers=headers)
 
     async def get_devices(self) -> list[dict] | None:
-        if self._token == "":
+        if not self._token:
             if not await self.login():
                 LOGGER.error("Login failed, cannot get devices")
                 return {}

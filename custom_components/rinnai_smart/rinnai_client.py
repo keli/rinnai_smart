@@ -18,6 +18,15 @@ class HTTPClient:
         self._password = str.upper(hashlib.md5(password.encode("utf-8")).hexdigest())
         self._token = ""
         self._devices = []
+        self._session: aiohttp.ClientSession | None = None
+
+    def _get_session(self) -> aiohttp.ClientSession:
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession(
+                base_url="https://iot.rinnai.com.cn",
+                raise_for_status=True,
+            )
+        return self._session
 
     async def login(self) -> bool:
         params = {
@@ -29,7 +38,6 @@ class HTTPClient:
             "identityLevel": "0",
         }
         response = await self._get_url("/app/V1/login", params=params)
-        LOGGER.info(f"Login response: success={response.get('success')}, has_token={bool(response.get('data', {}).get('token'))}")
         if response.get("success") == False:
             LOGGER.error(f"Failed to login: {response}")
             return False
@@ -39,17 +47,13 @@ class HTTPClient:
             LOGGER.error(f"Login succeeded but token is empty: {response}")
             return False
 
-        LOGGER.error(f"Successfully logged in, token prefix: {token[:8]}..., length: {len(token)}")
+        LOGGER.info("Successfully logged in")
         self._token = token
         return True
 
     async def _get_devices(self):
         headers = {"Authorization": f"Bearer {self._token}"}
-        try:
-            return await self._get_url("/app/V1/device/list", headers=headers)
-        except aiohttp.ClientResponseError as e:
-            LOGGER.error(f"device/list HTTP {e.status}, headers sent: Authorization=Bearer {self._token[:8]}..., response headers: {dict(e.headers) if e.headers else {}}")
-            raise
+        return await self._get_url("/app/V1/device/list", headers=headers)
 
     async def get_devices(self) -> list[dict] | None:
         if not self._token:
@@ -87,24 +91,24 @@ class HTTPClient:
         )
 
     async def get_device_information(self, device_id: str):
-        if self._token == "":
-            await self.login()
+        if not self._token:
+            if not await self.login():
+                return {}
 
         response = await self._get_device_information(device_id)
         if response.get("success") == False:
             LOGGER.error(f"Failed to get device information: {response}")
-            await self.login()
+            if not await self.login():
+                return {}
             response = await self._get_device_information(device_id)
 
         return response
 
     @backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=60)
     async def _get_url(self, url, **kwargs):
-        async with aiohttp.ClientSession(
-            base_url="https://iot.rinnai.com.cn", raise_for_status=True
-        ) as session:
-            async with session.get(url, **kwargs) as response:
-                return await response.json()
+        session = self._get_session()
+        async with session.get(url, **kwargs) as response:
+            return await response.json(content_type=None)
 
 
 class MQTTClient:

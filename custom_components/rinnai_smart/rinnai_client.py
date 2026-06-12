@@ -52,21 +52,8 @@ class HTTPClient:
         return True
 
     async def _get_devices(self):
-        # Try multiple auth header formats to diagnose which one the API accepts
-        for headers in [
-            {"Authorization": f"Bearer {self._token}"},
-            {"Authorization": self._token},
-            {"token": self._token},
-            {"accessToken": self._token},
-            {},
-        ]:
-            try:
-                result = await self._get_url_no_retry("/app/V1/device/list", headers=headers)
-                LOGGER.error(f"device/list succeeded with headers: {list(headers.keys())}")
-                return result
-            except aiohttp.ClientResponseError as e:
-                LOGGER.error(f"device/list {e.status} with headers: {list(headers.keys())}")
-        raise aiohttp.ClientResponseError(None, None, status=401, message="all auth methods failed")
+        headers = {"Authorization": f"Bearer {self._token}"}
+        return await self._get_url("/app/V1/device/list", headers=headers)
 
     async def get_devices(self) -> list[dict] | None:
         if not self._token:
@@ -121,11 +108,6 @@ class HTTPClient:
     async def _get_url(self, url, **kwargs):
         session = self._get_session()
         async with session.get(url, **kwargs) as response:
-            return await response.json(content_type=None)
-
-    async def _get_url_no_retry(self, url, **kwargs):
-        session = self._get_session()
-        async with session.get(url, raise_for_status=True, **kwargs) as response:
             return await response.json(content_type=None)
 
 

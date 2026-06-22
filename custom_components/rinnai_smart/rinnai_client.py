@@ -33,31 +33,22 @@ class HTTPClient:
             LOGGER.error(f"Failed to login: {response}")
             return False
 
-        token = response.get("data", {}).get("token")
-        if not token:
-            LOGGER.error(f"Login succeeded but token is empty: {response}")
-            return False
-
         LOGGER.info("Successfully logged in")
-        self._token = token
+        self._token = response.get("data").get("token")
         return True
 
     async def _get_devices(self):
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {"Authorization": f"Basic {self._token}"}
         return await self._get_url("/app/V1/device/list", headers=headers)
 
     async def get_devices(self) -> list[dict] | None:
-        if not self._token:
-            if not await self.login():
-                LOGGER.error("Login failed, cannot get devices")
-                return {}
+        if self._token == "":
+            await self.login()
 
         response = await self._get_devices()
         if response.get("success") == False:
             LOGGER.error(f"Failed to get devices: {response}")
-            if not await self.login():
-                LOGGER.error("Re-login failed, cannot get devices")
-                return {}
+            await self.login()
             response = await self._get_devices()
         devices = response.get("data", {}).get("list")
 
@@ -75,22 +66,20 @@ class HTTPClient:
         return devices_info
 
     async def _get_device_information(self, device_id: str):
-        headers = {"Authorization": f"Bearer {self._token}"}
+        headers = {"Authorization": f"Basic {self._token}"}
         params = {"deviceId": device_id}
         return await self._get_url(
             "/app/V1/device/processParameter", headers=headers, params=params
         )
 
     async def get_device_information(self, device_id: str):
-        if not self._token:
-            if not await self.login():
-                return {}
+        if self._token == "":
+            await self.login()
 
         response = await self._get_device_information(device_id)
         if response.get("success") == False:
             LOGGER.error(f"Failed to get device information: {response}")
-            if not await self.login():
-                return {}
+            await self.login()
             response = await self._get_device_information(device_id)
 
         return response
@@ -98,12 +87,10 @@ class HTTPClient:
     @backoff.on_exception(backoff.expo, aiohttp.ClientError, max_time=60)
     async def _get_url(self, url, **kwargs):
         async with aiohttp.ClientSession(
-            base_url="https://iot.rinnai.com.cn",
-            raise_for_status=True,
-            cookie_jar=aiohttp.DummyCookieJar(),
+            base_url="https://iot.rinnai.com.cn", raise_for_status=True
         ) as session:
             async with session.get(url, **kwargs) as response:
-                return await response.json(content_type=None)
+                return await response.json()
 
 
 class MQTTClient:
@@ -244,9 +231,9 @@ class RinnaiClient:
         MAX_BACKOFF = 3600
         NEED_BACKOFF_SECONDS = datetime.timedelta(seconds=60)
         backoff = BACKOFF_INIT
-        now = datetime.datetime.now()
         subscribes = []
         while True:
+            now = datetime.datetime.now()
             try:
                 LOGGER.info("Trying to connect to MQTT server...")
                 await self._mqtt_client.run(ssl_context, subscribes)
